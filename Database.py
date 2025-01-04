@@ -49,7 +49,7 @@ if not table_exists:
     db_cursor.execute('''
         CREATE TABLE songs (
             id SERIAL PRIMARY KEY,
-            file_name VARCHAR(255) NOT NULL,
+            file_name VARCHAR(255) NOT NULL UNIQUE,
             artist VARCHAR(255) NOT NULL,
             song_name VARCHAR(255) NOT NULL,
             release_date DATE,
