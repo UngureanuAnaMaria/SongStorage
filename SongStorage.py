@@ -8,7 +8,17 @@ from PIL import Image, ImageTk
 import zipfile
 
 class SongStorage:
+    """
+    A class for mapping songs in a storage system with metadata stored in a PostgreSQL database
+    and the songs files in a storage folder.
+    """
+
     def __init__(self):
+        """
+        Initialize the SongStorage class, setting up the storage directory and the
+        database connection.
+        """
+
         self.STORAGE_PATH = "Storage"
         self.db_conn = psycopg2.connect(
             database="SongStorage",
@@ -22,6 +32,22 @@ class SongStorage:
 
 
     def add_song(self, file_path, *metadata):
+        """
+        Adds a song file to the storage folder and its metadata to the database.
+
+        Args:
+            file_path (str): Song file path.
+            metadata (tuple): A tuple containing artist, song_name, release_date and tags information.
+
+        Returns:
+            int: ID of the added song.
+
+        Raises:
+            ValueError: If not all metadata has been provided or the song already exists in database.
+            FileExistsError: If the file already exists in the storage folder.
+            Exception: If there are errors during copying the song file into storage folder or database operations.
+        """
+
         if len(metadata) != 4:
             raise ValueError("Expected 4 metadata arguments: artist, song_name, release_date, and tags.")
 
@@ -75,6 +101,19 @@ class SongStorage:
 
 
     def delete_song(self, id_song):
+        """
+        Deletes a song file from storage file and its metadata from database.
+        The song is identified by its ID.
+
+        Args:
+            id_song (int): ID of the song to delete.
+
+        Raises:
+            ValueError: If the song ID doesn't exist in the database.
+            FileNotFoundError: If the song file doesn't exist in the storage folder.
+            Exception: If there are errors during deleting the song file from storage folder or database operations.
+        """
+
         self.db_cursor.execute(
             '''SELECT * FROM songs WHERE id = %s''',
             (id_song,)
@@ -111,6 +150,22 @@ class SongStorage:
 
 
     def modify_data(self, id_song, **metadata):
+        """
+        Modifies the metadata of a song existing in the database.
+        The song is identified by its ID.
+
+        Args:
+            id_song (int): ID of the song to modify.
+            **metadata: Key-value pairs representing the fields to update and their new values.
+
+        Returns:
+            None
+
+        Raises:
+             ValueError: If in the database isn't a song with the specified ID.
+             Exception: If an error occurs during the database operation or during the modifying process.
+        """
+
         self.db_cursor.execute(
             '''SELECT * FROM songs WHERE id = %s''',
             (id_song,)
@@ -140,6 +195,19 @@ class SongStorage:
 
 
     def search(self, **criteria):
+        """
+        Searches for songs in the database that meet the criteria.
+
+        Args:
+            **criteria: Key-value pairs representing the criteria for searching process.
+
+        Returns:
+            list: A list of matching songs.
+
+        Raises:
+            Exception: If there are errors in the database operation or in the search process.
+        """
+
         try:
             clauses = []
             values = []
@@ -149,7 +217,7 @@ class SongStorage:
                     clauses.append("file_name LIKE %s")
                     values.append(f"%.{value}")
                 elif isinstance(value, list):  # Tags
-                    clauses.append(f"{clause} && %s")  # PostgreSQL overlap array operator????
+                    clauses.append(f"{clause} && %s")  # PostgreSQL overlap array operator
                     values.append(value)
                 else:
                     clauses.append(f"{clause} = %s")
@@ -176,6 +244,20 @@ class SongStorage:
 
 
     def create_save_list(self, arhive_path,**criteria):
+        """
+        Create a ZIP archive containing the song files that meet the given criteria.
+
+        Args:
+            arhive_path (str): Path to the archive.
+            **criteria: Key-value pairs representing the criteria for searching songs process.
+
+        Returns:
+            list: A list of file names that has been added to the archive.
+
+        Raises:
+            Exception: If no songs match the criteria or an error occurs during the process.
+        """
+
         try:
             songs = self.search(**criteria)
 
@@ -205,6 +287,13 @@ class SongStorage:
 
 
     def play(self, file_path):
+        """
+        Plays a song file.
+
+        Args:
+            file_path (str): Path to the song file to play.
+        """
+
         mixer.init()
         mixer.music.load(file_path)
         mixer.music.set_volume(0.7)
@@ -226,28 +315,50 @@ class SongStorage:
         #         break
 
 
-    def pause(self, file_path):
+    def pause(self):
+        """
+        Pauses the currently playing song.
+        """
+
         mixer.music.pause()
 
 
-    def resume(self, file_path):
+    def resume(self):
+        """
+        Resumes a paused song.
+        """
+
         mixer.music.unpause()
 
 
-    def stop(self, file_path):
+    def stop(self):
+        """
+        Stops the currently playing song.
+        """
+
         mixer.music.stop()
 
 
     def get_all_songs(self):
+        """
+        Gets all songs stored into database.
+
+        Returns:
+            list: A list of song records from database.
+        """
+
         self.db_cursor.execute("SELECT * FROM songs")
         return self.db_cursor.fetchall()
 
 
     def close_connection(self):
+        """
+        Closes the database connection and cursor.
+        """
+
         self.db_cursor.close()
         self.db_conn.close()
 
-#SongStorage().close_connection()
 
 button_style = {
         "bg": "#2B4C93", # Background colour
@@ -260,6 +371,25 @@ song_label = None
 
 
 def open_add_song_window(storage, tree):
+    """
+    Opens a window for adding a song, including its metadata and file.
+
+    This function creates a GUI window where the user can input the artist, song_name, release_date, tags.
+    The user can also browse for an audio file to join the song. After entering the information, the user can save the song
+    and all the metadata will be displayed in the principal window(tree). Also, a success message is displayed in current window.
+
+    Args:
+        storage (SongStorage): An instance of SongStorage class used to add the song.
+        tree (ttk.Treeview): The treeview widget representing main window.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If any required fields (artist, song name, release date, tags or file) are missing.
+        Exception: If there are errors adding the song to the storage folder or database or displaying it into the main window.
+    """
+
     add_song_window = tk.Toplevel()
     add_song_window.title("Add Song")
     add_song_window.geometry("600x600")
@@ -283,6 +413,18 @@ def open_add_song_window(storage, tree):
     file_path = None
 
     def browse_file():
+        """
+        Opens a file dialog for browsing and selecting an audio file.
+
+        Updates the file path once is selected and display the file name in the current window.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
         nonlocal file_path
         file_path = filedialog.askopenfilename(title="Select a Song File",
                                                filetypes=[("Audio Files",
@@ -302,6 +444,20 @@ def open_add_song_window(storage, tree):
     file_label.pack()
 
     def save_song():
+        """
+        Attempts to add a song into the database and storage folder.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If any required fields (artist, song name, release date, tags or file) are missing.
+            Exception: If there are errors adding the song to the storage folder or database or displaying it into the main window.
+        """
+
         global song_label
         artist = artist_entry.get()
         song_name = song_name_entry.get()
@@ -358,6 +514,24 @@ def open_add_song_window(storage, tree):
 
 
 def open_delete_song_window(storage, tree):
+    """
+    Open a window that allows the user to delete a song from storage folder and database.
+
+    This function creates a GUI window where the user can input the song ID to delete. After the song is deleted,
+    the entry corresponding the ID is also removed from main window and a success message is displayed in current window.
+
+    Args:
+        storage (SongStorage): An instance of SongStorage class used to delete the song.
+        tree (ttk.Treeview): The treeview widget representing main window.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If the song ID is missing.
+        Exception: If there are errors in the deleting process or updating the main window.
+    """
+
     delete_song_window = tk.Toplevel()
     delete_song_window.title("Delete Song")
     delete_song_window.geometry("600x600")
@@ -367,6 +541,21 @@ def open_delete_song_window(storage, tree):
     id_entry.pack(pady = 5)
 
     def delete_song():
+        """
+        Searches for a song based on the ID provided by the user and attempts to delete it from database and
+        storage folder.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the song ID is missing.
+            Exception: If there are errors in the deleting process or updating the main window.
+        """
+
         global song_label
         song_id = id_entry.get()
 
@@ -404,6 +593,26 @@ def open_delete_song_window(storage, tree):
 
 
 def open_modify_song_window(storage, tree):
+    """
+    Open a window to modify the metadata of an existing song in the database.
+
+    This function creates a GUI window that allows the user to provide the song ID and the new values for
+    the metadata. After submitting the modification, the function attempts to update the song's information
+    and if the modification is successful a message will be displayed in the window and the
+    modifications will be displayed in the main window.
+
+    Args:
+        storage (SongStorage): An instance of SongStorage class used to modify the song.
+        tree (ttk.Treeview): The treeview widget representing main window.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If the song ID or no fields are provided for modification.
+        Exception: Is there are errors during modifying the song information or updating the main window.
+    """
+
     modify_song_window = tk.Toplevel()
     modify_song_window.title("Modify Song")
     modify_song_window.geometry("600x600")
@@ -429,6 +638,21 @@ def open_modify_song_window(storage, tree):
     tags_entry.pack(pady = 5)
 
     def modify_song():
+        """
+        Searches for a song based on the ID provided by the user and attempts to modify its metadata based on
+        the info provided.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the song ID or no fields are provided for modification.
+            Exception: Is there are errors during modifying the song information or updating the main window.
+        """
+
         global song_label
         song_id = id_entry.get()
         artist = artist_entry.get()
@@ -497,6 +721,23 @@ def open_modify_song_window(storage, tree):
 
 
 def open_play_song_window(storage):
+    """
+    Opens a window for playing, pausing and stopping a song.
+
+    This function creates a new GUI window with option for browsing and select an audio file,
+    button for playing, pausing and stopping the selected song.
+
+    Args:
+        storage (SongStorage): An instance of SongStorage class used to control song playback.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If no song file is selected before attempting to play a song.
+        Exception: If there are errors during the playback process.
+    """
+
     play_song_window = tk.Toplevel()
     play_song_window.title("Play Song")
     play_song_window.geometry("400x200")
@@ -506,6 +747,18 @@ def open_play_song_window(storage):
     is_paused = False
 
     def browse_file():
+        """
+        Opens a file dialog for browsing and selecting an audio file.
+
+        Updates the file path once is selected and display the file name in the current window.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
         nonlocal file_path
         file_path = filedialog.askopenfilename(title="Select a Song File",
                                                filetypes=[("Audio Files",
@@ -528,6 +781,16 @@ def open_play_song_window(storage):
     stop_icon_path = os.path.join("icons", "stop-button.png")
 
     def resize_icon(icon_path):
+        """
+        Resizes the provided icon to a standard size.
+
+        Args:
+            icon_path (str): The path to the icon image.
+
+        Returns:
+            ImageTk.PhotoImage: The resized icon image.
+        """
+
         image = Image.open(icon_path)
         resize_image = image.resize((20, 20))
         return ImageTk.PhotoImage(resize_image)
@@ -540,9 +803,19 @@ def open_play_song_window(storage):
     button_frame.pack(pady=10)
 
     def stop_song():
+        """
+        Stops the currently playing song and updates the buttons.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
         nonlocal is_playing, is_paused
 
-        storage.stop(file_path)
+        storage.stop()
         play_button.config(image = stop_icon)
         is_playing = False
         is_paused = False
@@ -552,6 +825,22 @@ def open_play_song_window(storage):
     stop_button = tk.Button(button_frame, image = stop_icon, command=stop_song)
 
     def play_song():
+        """
+        Play, pause and resume the song.
+
+        If the song is not playing, it starts the playback, els it toggles between pause and resume.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If no song file is selected.
+            Exception: If an error occurs during the process.
+        """
+
         nonlocal is_playing, is_paused
 
         if not file_path:
@@ -566,11 +855,11 @@ def open_play_song_window(storage):
                 play_button.config(image = pause_icon)
                 stop_button.pack(side=tk.LEFT, padx = 5)
             elif is_paused:
-                storage.resume(file_path)
+                storage.resume()
                 is_paused = False
                 play_button.config(image = pause_icon)
             else:
-                storage.pause(file_path)
+                storage.pause()
                 is_paused = True
                 play_button.config(image = play_icon)
         except Exception as e:
@@ -582,7 +871,17 @@ def open_play_song_window(storage):
     play_button.pack(side=tk.LEFT, padx = 5)
 
     def on_close():
-        storage.stop(file_path)
+        """
+        Stops the song playback when the window is closed.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
+        storage.stop()
         play_song_window.destroy()
 
     play_song_window.protocol("WM_DELETE_WINDOW", on_close)
@@ -591,6 +890,23 @@ def open_play_song_window(storage):
 
 
 def open_search_songs_window(storage):
+    """
+    Opens a window for searching song based on various criteria.
+
+    This function opens a GUI window where the user can input the criteria for searching, such as artist, song name, release date,
+    tags, format. After submitting the results will appear in a table in the current window. If no input is provided all datas from
+    database will represent the result.
+
+     Args:
+        storage (SongStorage): An instance of SongStorage class used to search songs.
+
+    Returns:
+         None
+
+    Raises:
+        Exception: If there are errors during the search process.
+    """
+
     search_songs_window = tk.Toplevel()
     search_songs_window.title("Search Songs")
     search_songs_window.geometry("1200x600")
@@ -618,6 +934,19 @@ def open_search_songs_window(storage):
     tree_search = None
 
     def search_songs():
+        """
+        Searches for songs based on the user input and display the results.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If there are errors during the search process.
+        """
+
         nonlocal tree_search
 
         artist = artist_entry.get()
@@ -681,6 +1010,24 @@ def open_search_songs_window(storage):
 
 
 def open_create_save_list_window(storage):
+    """
+    Opens a window for creating a song archive based on various criteria.
+
+    This function opens a GUI window where the user can input the criteria for searching songs to add in the archive,
+    such as artist, song name, release date, tags, format. It also allows the user to browse and select an archive file.
+    After submitting, the song are added in the archive and a message is displayed in the current window.
+
+     Args:
+        storage (SongStorage): An instance of SongStorage class used for creating the save list and handling the archive.
+
+    Returns:
+         None
+
+    Raises:
+        ValueError: If no archive file is selected or no songs are added to the archive.
+        Exception: If there are errors during the create save list process.
+    """
+
     create_save_list_window = tk.Toplevel()
     create_save_list_window.title("Create Save List")
     create_save_list_window.geometry("600x600")
@@ -708,6 +1055,18 @@ def open_create_save_list_window(storage):
     arhive_path = None
 
     def browse_file():
+        """
+        Opens a file dialog for browsing and selecting an archive file.
+
+        Updates the file path once is selected and display the file name in the current window.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
         nonlocal arhive_path
         arhive_path = filedialog.askopenfilename(title="Select a Arhive File",
                                                  filetypes=[
@@ -740,6 +1099,20 @@ def open_create_save_list_window(storage):
     file_label.pack(pady=10)
 
     def create_save_list():
+        """
+        Creates a save list from the user input data and adds them to the selected archive.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If no archive file is selected or no songs are added to the archive.
+            Exception: If there are errors during the create save list process.
+        """
+
         artist = artist_entry.get()
         song_name = song_name_entry.get()
         release_date = release_date_entry.get()
@@ -802,6 +1175,18 @@ def open_create_save_list_window(storage):
 
 
 def main():
+    """
+    This function initialize the SongStorage system, creates the main application window using Tkinter where all
+    the data from database will be displayed in a table and set up the buttons for various operations (add, delete,
+    modify, search, play, create save list).
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+
     storage = SongStorage()
 
     root = tk.Tk()
