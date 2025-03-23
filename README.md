@@ -70,7 +70,7 @@ The tool generates logs for each operation performed, which can be helpful for t
 - Python
 - Tkinter for GUI
 - Third-party libraries for media playback
-- SQLite or PostgreSQL for metadata storage
+- PostgreSQL for metadata storage
 
 ## Installation  
 To use the SongStorage tool, clone this repository and install the necessary dependencies:
