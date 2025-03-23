@@ -78,5 +78,5 @@ To use the SongStorage tool, clone this repository and install the necessary dep
 ```bash
 git clone https://github.com/UngureanuAnaMaria/SongStorage.git
 cd SongStorage
-pip install -r requirements.txt
+pip install -r Requirements.txt
 
